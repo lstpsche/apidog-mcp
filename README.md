@@ -21,7 +21,7 @@ Add to your MCP client config (e.g. `.cursor/mcp.json`):
       "env": {
         "APIDOG_ACCESS_TOKEN": "<your-apidog-personal-access-token>",
         "APIDOG_PROJECT_ID": "<your-project-id>",
-        "APIDOG_MODULES": "{\"api\":1234,\"engine\":5678}"
+        "APIDOG_MODULES": "{\"backend\":1234,\"payments\":5678}"
       }
     }
   }
@@ -105,7 +105,7 @@ Find module IDs in each module's settings page within your Apidog project.
 
 ## Multi-Module Architecture
 
-A single server instance manages multiple Apidog modules. Pass the module name (e.g. `"api"`, `"engine"`) to each tool call — the server resolves it to the correct module ID from `APIDOG_MODULES`.
+A single server instance manages multiple Apidog modules. Pass the module name (e.g. `"backend"`, `"payments"`) to each tool call — the server resolves it to the correct module ID from `APIDOG_MODULES`.
 
 ## License
 
