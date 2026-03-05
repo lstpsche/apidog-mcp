@@ -109,4 +109,4 @@ A single server instance manages multiple Apidog modules. Pass the module name (
 
 ## License
 
-MIT
+[MIT](LICENSE)
