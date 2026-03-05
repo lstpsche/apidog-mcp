@@ -10,7 +10,45 @@ npx @lstpsche/apidog-mcp
 
 ## Configuration
 
-Add to your MCP client config (e.g. `.cursor/mcp.json`):
+### Option A: Project-level config file (recommended)
+
+Create `.apidog.json` in your project root:
+
+```json
+{
+  "accessToken": "adgp_your_token_here",
+  "projectId": "1234567",
+  "modules": {
+    "backend": 1234,
+    "payments": 5678
+  }
+}
+```
+
+Add `.apidog.json` to your `.gitignore` to keep secrets out of version control.
+
+Then configure your MCP client (e.g. `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "apidog": {
+      "command": "npx",
+      "args": ["-y", "@lstpsche/apidog-mcp"]
+    }
+  }
+}
+```
+
+### Option B: Environment variables
+
+Set these in your shell or CI environment:
+
+| Variable | Description |
+|---|---|
+| `APIDOG_ACCESS_TOKEN` | Apidog personal access token |
+| `APIDOG_PROJECT_ID` | Apidog project ID |
+| `APIDOG_MODULES` | JSON map of module names to IDs (e.g. `{"api":123}`) |
 
 ```json
 {
@@ -19,25 +57,24 @@ Add to your MCP client config (e.g. `.cursor/mcp.json`):
       "command": "npx",
       "args": ["-y", "@lstpsche/apidog-mcp"],
       "env": {
-        "APIDOG_ACCESS_TOKEN": "<your-apidog-personal-access-token>",
-        "APIDOG_PROJECT_ID": "<your-project-id>",
-        "APIDOG_MODULES": "{\"backend\":1234,\"payments\":5678}"
+        "APIDOG_ACCESS_TOKEN": "${APIDOG_ACCESS_TOKEN}",
+        "APIDOG_PROJECT_ID": "${APIDOG_PROJECT_ID}",
+        "APIDOG_MODULES": "${APIDOG_MODULES}"
       }
     }
   }
 }
 ```
 
-### Environment Variables
+### Resolution order
 
-| Variable | Required | Description |
-|---|---|---|
-| `APIDOG_ACCESS_TOKEN` | Yes | Apidog personal access token |
-| `APIDOG_PROJECT_ID` | Yes | Apidog project ID |
-| `APIDOG_MODULES` | Yes | JSON map of module names to Apidog module IDs |
+Environment variables take precedence over `.apidog.json`. You can mix both — for example, keep `projectId` and `modules` in `.apidog.json` and set `APIDOG_ACCESS_TOKEN` via environment for security.
 
-Get your access token from Apidog > Account Settings > API Access Tokens.
-Find module IDs in each module's settings page within your Apidog project.
+### Where to find your credentials
+
+- **Access Token**: Apidog > Account Settings > API Access Tokens
+- **Project ID**: Open your project > Settings > Basic Settings
+- **Module IDs**: Each module's settings page within your Apidog project
 
 ## Tools (22)
 
