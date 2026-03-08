@@ -3,9 +3,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { fileURLToPath } from 'node:url';
 
 import { loadConfig, resolveProject, resolveModule } from './config.js';
-import type { ProjectConfig } from './config.js';
+import type { Config, ProjectConfig } from './config.js';
 import { ApidogClient } from './client.js';
 import { handleExport, handleList, handleGet, handleFolders } from './tools/read.js';
 import { handleImportOpenApi, handleWipe, handleUpdate, handleDelete, handlePipeline } from './tools/write.js';
@@ -17,15 +18,46 @@ import { handleAnalyze } from './tools/analysis.js';
 import { handleBulkUpdate } from './tools/bulk.js';
 import { handleExportMarkdown, handleExportCurl, handleExportPostman } from './tools/exports.js';
 
-const config = loadConfig();
+const VERSION = '6.1.0';
 
-const clients = new Map<string, ApidogClient>();
-for (const p of config.projects) {
-  clients.set(p.name, new ApidogClient(config.accessToken, p.projectId));
+const server = new McpServer({ name: 'apidog-mcp', version: VERSION });
+
+let _config: Config | null = null;
+const _clients = new Map<string, ApidogClient>();
+
+async function getMcpRoots(): Promise<string[]> {
+  try {
+    const { roots } = await server.server.listRoots();
+    return roots
+      .map(r => {
+        try { return fileURLToPath(r.uri); } catch { return null; }
+      })
+      .filter((p): p is string => p !== null);
+  } catch {
+    return [];
+  }
+}
+
+async function ensureConfig(): Promise<Config> {
+  if (_config) return _config;
+
+  const roots = await getMcpRoots();
+  _config = loadConfig(roots);
+
+  for (const p of _config.projects) {
+    _clients.set(p.name, new ApidogClient(_config.accessToken, p.projectId));
+  }
+
+  const summary = _config.projects
+    .map(p => `${p.name}(${p.projectId})[${Object.keys(p.modules).join(',')}]`)
+    .join(' ');
+  console.error(`apidog-mcp v${VERSION} loaded | ${summary}`);
+
+  return _config;
 }
 
 function getClient(project: ProjectConfig): ApidogClient {
-  return clients.get(project.name)!;
+  return _clients.get(project.name)!;
 }
 
 type ToolResult = { content: Array<{ type: 'text'; text: string }> };
@@ -36,9 +68,7 @@ function errorResult(err: unknown): ToolResult {
 }
 
 const projectParam = z.string().optional().describe(
-  config.projects.length > 1
-    ? `Project name (${config.projects.map(p => `"${p.name}"`).join(', ')}). Required when multiple projects are configured.`
-    : 'Project name (optional — defaults to the only configured project)',
+  'Project name. Required when multiple projects are configured, optional otherwise.',
 );
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,6 +76,7 @@ function tool(handler: (client: ApidogClient, moduleId: number, args: any) => Pr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async (args: any): Promise<ToolResult> => {
     try {
+      const config = await ensureConfig();
       const project = resolveProject(config, args.project);
       const client = getClient(project);
       const moduleId = resolveModule(project, args.module);
@@ -57,8 +88,6 @@ function tool(handler: (client: ApidogClient, moduleId: number, args: any) => Pr
   };
 }
 
-const server = new McpServer({ name: 'apidog-mcp', version: '6.0.0' });
-
 // --- apidog_modules (no module param) ---
 
 server.tool(
@@ -69,6 +98,7 @@ server.tool(
   },
   async (args) => {
     try {
+      const config = await ensureConfig();
       const projects = args.project
         ? [resolveProject(config, args.project)]
         : config.projects;
@@ -426,10 +456,7 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  const projectSummary = config.projects
-    .map(p => `${p.name}(${p.projectId})[${Object.keys(p.modules).join(',')}]`)
-    .join(' ');
-  console.error(`apidog-mcp v6.0.0 running | ${projectSummary}`);
+  console.error(`apidog-mcp v${VERSION} running — config loads on first tool call`);
 }
 
 main().catch(err => {

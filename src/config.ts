@@ -27,7 +27,7 @@ interface FileConfig {
 
 const ENV_DEFAULT_PROJECT = 'default';
 
-function findConfigFile(): string | null {
+function findConfigFile(extraRoots: string[] = []): string | null {
   if (process.env.APIDOG_CONFIG_PATH) {
     return existsSync(process.env.APIDOG_CONFIG_PATH)
       ? process.env.APIDOG_CONFIG_PATH
@@ -42,11 +42,17 @@ function findConfigFile(): string | null {
     if (parent === dir) break;
     dir = parent;
   }
+
+  for (const root of extraRoots) {
+    const candidate = join(root, '.apidog.json');
+    if (existsSync(candidate)) return candidate;
+  }
+
   return null;
 }
 
-function loadFileConfig(): FileConfig | null {
-  const filePath = findConfigFile();
+function loadFileConfig(extraRoots: string[] = []): FileConfig | null {
+  const filePath = findConfigFile(extraRoots);
   if (!filePath) return null;
 
   try {
@@ -103,8 +109,8 @@ function buildEnvProject(): ProjectConfig | null {
   return { name: ENV_DEFAULT_PROJECT, projectId, modules };
 }
 
-export function loadConfig(): Config {
-  const file = loadFileConfig();
+export function loadConfig(extraRoots: string[] = []): Config {
+  const file = loadFileConfig(extraRoots);
 
   const accessToken = process.env.APIDOG_ACCESS_TOKEN || file?.accessToken;
   if (!accessToken) {
