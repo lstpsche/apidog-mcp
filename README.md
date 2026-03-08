@@ -40,6 +40,37 @@ Then configure your MCP client (e.g. `.cursor/mcp.json`):
 }
 ```
 
+#### Multi-project config
+
+To manage multiple Apidog projects from a single config, use the `projects` array:
+
+```json
+{
+  "accessToken": "adgp_your_token_here",
+  "projects": [
+    {
+      "name": "main",
+      "projectId": "1234567",
+      "modules": {
+        "backend": 1234,
+        "payments": 5678
+      }
+    },
+    {
+      "name": "staging",
+      "projectId": "7654321",
+      "modules": {
+        "default": 9999
+      }
+    }
+  ]
+}
+```
+
+Each project has a `name` used to target it in tool calls via the `project` parameter. When only one project is configured, the `project` parameter is optional and defaults automatically.
+
+The single-project format (with top-level `projectId` and `modules`) is still fully supported and treated as a single project named `"default"`.
+
 ### Option B: Environment variables
 
 Set these in your shell or CI environment:
@@ -66,9 +97,21 @@ Set these in your shell or CI environment:
 }
 ```
 
+Environment variables define a single project named `"default"`. They can be combined with a multi-project `.apidog.json` — the env-var project overrides any file-based project with the same name.
+
+### Config file resolution
+
+The server locates `.apidog.json` using the following strategy:
+
+1. **`APIDOG_CONFIG_PATH` env var** — if set, uses this explicit file path
+2. **Upward directory walk** — searches from `process.cwd()` upward through parent directories until `.apidog.json` is found (similar to how Node resolves `package.json`)
+3. **Env-only fallback** — if no file is found, falls back to environment variables
+
+This means `.apidog.json` works reliably even when the MCP server is started from a subdirectory or by a plugin that doesn't set the working directory to the project root.
+
 ### Resolution order
 
-Environment variables take precedence over `.apidog.json`. You can mix both — for example, keep `projectId` and `modules` in `.apidog.json` and set `APIDOG_ACCESS_TOKEN` via environment for security.
+Environment variables take precedence over `.apidog.json` for the `"default"` project. You can mix both — for example, keep `projectId` and `modules` in `.apidog.json` and set `APIDOG_ACCESS_TOKEN` via environment for security.
 
 ### Where to find your credentials
 
@@ -78,11 +121,13 @@ Environment variables take precedence over `.apidog.json`. You can mix both — 
 
 ## Tools (22)
 
+All tools accept an optional `project` parameter to target a specific project in multi-project configurations. When only one project is configured, this parameter can be omitted.
+
 ### Read
 
 | Tool | Description |
 |---|---|
-| `apidog_modules` | List configured modules with names and IDs |
+| `apidog_modules` | List configured projects and their modules with names and IDs |
 | `apidog_export` | Export full OpenAPI spec for a module |
 | `apidog_list` | List/search endpoints with filters and pagination |
 | `apidog_get` | Get full details of a single endpoint |
@@ -140,6 +185,10 @@ Environment variables take precedence over `.apidog.json`. You can mix both — 
 |---|---|
 | `apidog_run_test` | Run test scenarios or folders via Apidog CLI |
 
+## Architecture
+
+A single server instance can manage multiple Apidog projects and modules. Pass the `module` name (e.g. `"backend"`, `"payments"`) to each tool call — the server resolves it to the correct module ID. For multi-project setups, also pass the `project` name (e.g. `"main"`, `"staging"`).
+
 ## Limitations
 
 Apidog's public API is limited in scope. The following functionality is **not available** through this MCP server due to missing API support:
@@ -158,10 +207,6 @@ Apidog's public API is limited in scope. The following functionality is **not av
 | **Change history** | No API to access endpoint revision history. |
 
 These limitations are inherent to the Apidog API as of March 2026. The MCP server implements workarounds where possible (noted above).
-
-## Multi-Module Architecture
-
-A single server instance manages multiple Apidog modules. Pass the module name (e.g. `"backend"`, `"payments"`) to each tool call — the server resolves it to the correct module ID from `APIDOG_MODULES`.
 
 ## License
 
